@@ -1,0 +1,190 @@
+%Connect FEniCS to QMCPy
+\documentclass[11pt,compress,xcolor={usenames,dvipsnames},aspectratio=169]{beamer}
+%\documentclass[xcolor={usenames,dvipsnames},aspectratio=169]{beamer} %slides and 
+%notes
+\usepackage[T1]{fontenc}
+\usepackage{tgadventor} %Font found at https://tug.org/FontCatalogue/
+%\usepackage{newpxtext}
+\usepackage[euler-digits,euler-hat-accent]{eulervm}
+
+\usepackage{amsmath,
+	amssymb,
+	datetime,
+	mathtools,
+	bbm,
+	%mathabx,
+	array,
+	booktabs,
+	xspace,
+	multirow,
+	calc,
+	colortbl,
+	siunitx,
+ 	graphicx}
+\usepackage[usenames]{xcolor}
+\usepackage[giveninits=false,backend=biber,style=nature, maxcitenames =10, mincitenames=9]{biblatex}
+\addbibresource{FJHown23.bib}
+\addbibresource{FJH23.bib}
+\usepackage{media9}
+\usepackage[autolinebreaks]{mcode}
+\usepackage[tikz]{mdframed}
+
+
+\usetheme{FJHSlimNoFoot169}
+\setlength{\parskip}{2ex}
+\setlength{\arraycolsep}{0.5ex}
+
+\DeclareMathOperator{\GP}{\mathcal{G} \! \mathcal{P}}
+\DeclareMathOperator{\SOL}{SOL}
+\DeclareMathOperator{\APP}{APP}
+\DeclareMathOperator{\ERR}{ERR}
+\DeclareMathOperator{\AVG}{AVG}
+\DeclareMathOperator{\INT}{INT}
+\DeclareMathOperator{\LIN}{LINEAR}
+\DeclareMathOperator{\BAD}{BAD}
+%\DeclareMathOperator{\opt}{opt}
+\newcommand{\dataN}{\bigl(\hf(\vk_i)\bigr)_{i=1}^n}
+\newcommand{\dataNj}{\bigl(\hf(\vk_i)\bigr)_{i=1}^{n_j}}
+\newcommand{\dataNjd}{\bigl(\hf(\vk_i)\bigr)_{i=1}^{n_{j^\dagger}}}
+\newcommand{\ERRN}{\ERR\bigl(\dataN,n\bigr)}
+\newcommand{\otod}{\ensuremath{1\mkern-4mu : \mkern-2mu d}}
+\newcommand{\hvu}{\widehat{\vu}}
+\newcommand{\hu}{\widehat{u}}
+
+
+%\DeclareMathOperator{\app}{app}
+
+\providecommand{\HickernellFJ}{H.\xspace}
+
+
+\renewcommand{\OffTitleLength}{-7ex}
+\setlength{\FJHThankYouMessageOffset}{-8ex}
+\title{Connecting FEniCS to QMCPy}
+\author[]{Fred Hickernell, hopefully with Mark Klinchin}
+\institute{Department of Applied Mathematics \qquad
+	Center for Interdisciplinary Scientific Computation \\
+	Illinois Institute of Technology \qquad
+	\href{mailto:hickernell@iit.edu}{\url{hickernell@iit.edu}} \qquad
+	\href{http://mypages.iit.edu/~hickernell}{\url{mypages.iit.edu/~hickernell}}}
+
+\thanksnote{}
+	
+%\event{Happy Fred}
+\date[]{ revised \today}
+
+\input FJHDef.tex
+
+
+
+\begin{document}
+	\everymath{\displaystyle}
+
+\frame{\titlepage}
+
+
+\begin{frame}{QMCPy $+$ FEniCS}
+
+\vspace{-4ex}
+\alert{Goal:} Demonstrate how to connect our package, QMCPy, with a major package that lacks what QMCPy provides
+
+\vspace{2ex}
+
+\uncover<2->{\begin{columns}[T]
+\centering
+\column{0.5\textwidth}
+\centering
+\alert{QMCPy} \href{https://qmcpy.org/}{\beamergotobutton{here}} 
+\begin{itemize}
+    \item Low discrepancy point generation, $\vw_1, \vw_2, \ldots$
+    \item Automatic stopping criteria that determine the $n$ for approximating $\Ex[g(\vW)] = \int_{[0,1]^N} g(\vw) \, \dif \vw$, where $\vW \sim \cu[0,1]^N$, by $\frac 1n \sum_{i=1}^n g(\vw_i)$ with error tolerance $\varepsilon$
+\end{itemize}
+
+\column<3->{0.5\textwidth}{
+\centering
+\alert{FEniCS} \href{https://fenicsproject.org//}{\beamergotobutton{here}} 
+\begin{itemize}
+    \item State-of-the art finite element solver for partial differential equations (PDEs)
+    \item Runs on high performance machines
+    \item No \alert{randomness} in the PDEs
+\end{itemize}
+}
+\end{columns}}
+\end{frame}
+
+
+\begin{frame}{A Model Problem}
+
+\vspace{-4ex}
+
+In this \href{https://qmcpy.org/2021/06/04/elliptic-pde-demo/}{\beamerbutton{QMCPy blog}} Pieterjan Robbe showed how to solve an ordinary differential equation with random coefficients
+\begin{equation*}
+-\frac{\dif }{\dif x}\biggl(a(x) \frac{\dif}{\dif x} u(x) \biggr) = f(x), \quad 0 \leq x \leq 1, \qquad
+u(0) = u_0, \quad
+u(1) = u_1
+\end{equation*}
+where $a$ is a \alert{random} function, and so $u$ is also a \alert{random} function.  The form of randomness assumed is $\log(a) \sim \GP(0,C)$, meaning that $\log(a(x_1)), \ldots \log(a(x_N))$ has a \alert{multivariate Gaussian (normal)} distribution with
+\begin{itemize}
+    \item Mean $\vzero$
+    \item Covariance $\bigl( C(x_i,x_j) \bigr)_{i,j=1}^N$ (see Jupyter notebook for the definition of $C$)
+\end{itemize}
+
+Suppose that we want to find $\Ex[u(1/2;a)]$?
+
+\end{frame}
+
+
+\begin{frame}{Solving an ODE with Random Coefficients}
+
+\vspace{-8ex}
+\begin{gather*}
+-\frac{\dif }{\dif x}\biggl(a(x) \frac{\dif}{\dif x} u(x) \biggr) = f(x), \quad 0 \leq x \leq 1, \qquad
+u(0) = u_0, \quad
+u(1) = u_1, \qquad \\
+\log(a) \sim \GP(0,C), \qquad \Ex[u(1/2;a)] = ?
+\end{gather*}
+
+\vspace{-3ex}
+\begin{itemize}
+    \item Numerical solutions of ordinary differential equations generate $\hvu = \bigl(\hu(x_1;\vA), \ldots, \hu(x_N;\vA)\bigr)^T$, where $\vA = \bigl( a(x_1), \dots, a(x_N) \bigr)^T$; we will use FEniCS to generate $\hvu$
+    \item  Define a distribution for $\vA$ via the transformation $\vA = \vPsi(\vW)$, where $\vW \sim \cu[0,1]^N$
+    \item We want 
+    \[
+    \Ex[u(1/2,a)] \approx \Ex[\hu(1/2,\vA)] = \Ex[\hu(1/2,\vPsi(\vW))] \approx \frac 1n \sum_{i=1}^n \hu(1/2,\vPsi(\vw_i))
+    \]
+    where $\vw_1, \vw_2, \ldots$ are low discrepancy points
+    
+\end{itemize}
+
+    
+\end{frame}
+
+
+\begin{frame}{Next Steps}
+
+\vspace{-8ex}
+\begin{gather*}
+-\frac{\dif }{\dif x}\biggl(a(x) \frac{\dif}{\dif x} u(x) \biggr) = f(x), \quad 0 \leq x \leq 1, \qquad
+u(0) = u_0, \quad
+u(1) = u_1, \qquad \\
+\log(a) \sim \GP(0,C), \qquad \Ex[u(1/2,a)] = ?
+\end{gather*}
+
+\vspace{-3ex}
+\begin{enumerate}
+    \item Look at FEniCS tutorials to learn how to generate $\hvu = \bigl(\hu(x_1;\vA), \ldots, \hu(x_N;\vA)\bigr)^T$, where $\vA = \bigl( a(x_1), \dots, a(x_N) \bigr)^T$
+    \begin{itemize}
+        \item First do $u_0 = u_1 = 0$, $a(x) = 1$, $f(x) = u(x) = \sin(\pi x)$
+        \item Next try $a(x) = x$, $u(x) = \sin (\pi x)$, $f(x) =$ whatever it takes
+    \end{itemize}
+    \item  Implement the log-normal transformation, $\vPsi$ following what Pieterjan did.
+    \item Use the Sobol' or lattice stopping criterion to approximate  $\Ex[\hu(1/2,\vPsi(\vW))]$, where $\vW \sim \cu[0,1]^N$
+    
+\end{enumerate}
+
+    
+\end{frame}
+
+
+
+
+\end{document}
