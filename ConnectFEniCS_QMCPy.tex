@@ -51,6 +51,8 @@
 \newcommand{\hvu}{\widehat{\vu}}
 \newcommand{\hu}{\widehat{u}}
 
+\newcounter{enumcont}
+
 
 %\DeclareMathOperator{\app}{app}
 
@@ -85,7 +87,7 @@
 \begin{frame}{QMCPy $+$ FEniCS}
 
 \vspace{-4ex}
-\alert{Goal:} Demonstrate how to connect our package, QMCPy, with a major package that lacks what QMCPy provides
+\alert{Goal:} Demonstrate how to connect QMCPy with a \alert{major} software library that lacks what QMCPy provides
 
 \vspace{2ex}
 
@@ -93,47 +95,104 @@
 \centering
 \column{0.5\textwidth}
 \centering
-\alert{QMCPy} \href{https://qmcpy.org/}{\beamergotobutton{here}} 
+\alert{QMCPy} \href{https://qmcpy.org/}{\beamerbutton{here}} 
 \begin{itemize}
-    \item Low discrepancy point generation, $\vw_1, \vw_2, \ldots$
-    \item Automatic stopping criteria that determine the $n$ for approximating $\Ex[g(\vW)] = \int_{[0,1]^N} g(\vw) \, \dif \vw$, where $\vW \sim \cu[0,1]^N$, by $\frac 1n \sum_{i=1}^n g(\vw_i)$ with error tolerance $\varepsilon$
+    \item Low discrepancy sequence generation, $\vw_1, \vw_2, \ldots$
+    \item Automatic stopping criteria  determine the $n$ for approximating $\Ex[g(\vW)] = \int_{[0,1]^N} g(\vw) \, \dif \vw$, where $\vW \sim \cu[0,1]^N$, by $\frac 1n \sum_{i=1}^n g(\vw_i)$ with error tolerance $\varepsilon$
 \end{itemize}
 
-\column<3->{0.5\textwidth}{
+\column<2->{0.5\textwidth}{
 \centering
-\alert{FEniCS} \href{https://fenicsproject.org//}{\beamergotobutton{here}} 
+\only<2>{\alert{a bit different notation for QMCPy to be consistent with the next part}}
+\only<3->{
+\alert{FEniCS} \href{https://fenicsproject.org//}{\beamerbutton{here}} 
 \begin{itemize}
     \item State-of-the art finite element solver for partial differential equations (PDEs)
     \item Runs on high performance machines
     \item No \alert{randomness} in the PDEs
-\end{itemize}
+\end{itemize}}
 }
 \end{columns}}
 \end{frame}
 
 
-\begin{frame}{A Model Problem}
+\begin{frame}{Model Problem}
 
 \vspace{-4ex}
 
-In this \href{https://qmcpy.org/2021/06/04/elliptic-pde-demo/}{\beamerbutton{QMCPy blog}} Pieterjan Robbe showed how to solve an ordinary differential equation with random coefficients
-\begin{equation*}
--\frac{\dif }{\dif x}\biggl(a(x) \frac{\dif}{\dif x} u(x) \biggr) = f(x), \quad 0 \leq x \leq 1, \qquad
+In his \href{https://qmcpy.org/2021/06/04/elliptic-pde-demo/}{\beamerbutton{QMCPy blog}} Pieterjan Robbe showed how to solve an ordinary differential equation (ODE), aka 1D PDE, with random coefficients
+\begin{gather*}
+-\frac{\dif }{\dif x}\biggl(\alert{a}(x) \frac{\dif}{\dif x} u(x) \biggr) = f(x), \quad 0 \leq x \leq 1, \qquad
 u(0) = u_0, \quad
-u(1) = u_1
-\end{equation*}
-where $a$ is a \alert{random} function, and so $u$ is also a \alert{random} function.  The form of randomness assumed is $\log(a) \sim \GP(0,C)$, meaning that $\log(a(x_1)), \ldots \log(a(x_N))$ has a \alert{multivariate Gaussian (normal)} distribution with
+u(1) = u_1 \\
+\Ex[u(1/2;a)] = ?
+\end{gather*}
+where \alert{$a$} is a \alert{random} function, and so $u$ is also a \alert{random} function.  It is assumed that $\log(a) \sim \GP(0,C)$, meaning that $\log(a(x_1)), \ldots \log(a(x_N))$ has a \alert{multivariate Gaussian (normal)} distribution with
 \begin{itemize}
     \item Mean $\vzero$
     \item Covariance $\bigl( C(x_i,x_j) \bigr)_{i,j=1}^N$ (see Jupyter notebook for the definition of $C$)
 \end{itemize}
 
-Suppose that we want to find $\Ex[u(1/2;a)]$?
-
 \end{frame}
 
 
 \begin{frame}{Solving an ODE with Random Coefficients}
+
+\vspace{-8ex}
+\begin{gather*}
+-\frac{\dif }{\dif x}\biggl(\alert{a}(x) \frac{\dif}{\dif x} u(x) \biggr) = f(x), \quad 0 \leq x \leq 1, \qquad
+u(0) = u_0, \quad
+u(1) = u_1, \qquad \\
+\log(a) \sim \GP(0,C), \qquad \Ex[u(1/2;a)] = \, ?
+\end{gather*}
+
+\vspace{-3ex}
+\begin{itemize}
+    \item Numerical solutions of ODEs take the form $\hvu = \bigl(\hu(x_1;\vA), \ldots, \hu(x_N;\vA)\bigr)^T$, where $\vA = \bigl( a(x_1), \dots, a(x_N) \bigr)^T$; we will use FEniCS to generate $\hvu$
+    \item  Define a distribution for $\vA$ via the transformation $\vA = \vPsi(\vW)$, where $\vW \sim \cu[0,1]^N$
+    \item We want 
+    \[
+    \Ex[u(1/2,a)] \underbrace{\approx}_{\substack{\text{ignore} \\ \text{this error}}} \Ex[\hu(1/2;\vA)] = \Ex[\hu(1/2;\vPsi(\vW))] \approx \frac 1n \sum_{i=1}^n \hu(1/2,\vPsi(\vw_i))
+    \]
+    where $\vw_1, \vw_2, \ldots$ are low discrepancy points
+    
+\end{itemize}
+
+    
+\end{frame}
+
+
+\begin{frame}{First Steps}
+
+\vspace{-8ex}
+\begin{gather*}
+-\frac{\dif }{\dif x}\biggl(a(x) \frac{\dif}{\dif x} u(x) \biggr) = f(x), \quad 0 \leq x \leq 1, \qquad
+u(0) = u_0, \quad
+u(1) = u_1, \qquad \\
+\log(a) \sim \GP(0,C), \qquad \Ex[u(1/2;a)] = \, ?, \quad \text{i.e., } g(\vw) = \hu(1/2;\vPsi(\vw))
+\end{gather*}
+
+\vspace{-3ex}
+\begin{enumerate}
+    \item Look at FEniCS tutorials to learn how to generate $\hvu = \bigl(\hu(x_1;\vA), \ldots, \hu(x_N;\vA)\bigr)^T$, where $\vA = \bigl( a(x_1), \dots, a(x_N) \bigr)^T$
+    \begin{itemize}
+    \item Perhaps try the older version \href{https://pypi.org/project/fenics/}{\beamerbutton{PyPi FEniCS}}
+        \item First do $u_0 = u_1 = 0$, $a(x) = 1$, $f(x) = u(x) = \sin(\pi x)$
+        \item Next try $a(x) = x$, $u(x) = \sin (\pi x)$, $f(x) =$ whatever it takes
+    \end{itemize}
+    \item  Implement the log-normal transformation, $\vPsi$ following what Pieterjan did so that $\vA = \vPsi(\vW)$ has the correct distribution, see \texttt{Gaussian} class
+    \begin{itemize}
+        \item As an easier case try  $\vA = \bigl( a(x_1), \dots, a(x_N) \bigr)^T = \vone + \vW$, $\vW \sim \cu[0,1]^N$
+    \end{itemize}
+    \item Use the Sobol' or lattice stopping criterion to approximate  $\Ex[\hu(1/2;\vPsi(\vW))]$, where $\vW \sim \cu[0,1]^N$
+    \setcounter{enumcont}{\value{enumi}}
+\end{enumerate}
+
+    
+\end{frame}
+
+
+\begin{frame}{Next Steps (Maybe Much Later)}
 
 \vspace{-8ex}
 \begin{gather*}
@@ -144,45 +203,200 @@ u(1) = u_1, \qquad \\
 \end{gather*}
 
 \vspace{-3ex}
-\begin{itemize}
-    \item Numerical solutions of ordinary differential equations generate $\hvu = \bigl(\hu(x_1;\vA), \ldots, \hu(x_N;\vA)\bigr)^T$, where $\vA = \bigl( a(x_1), \dots, a(x_N) \bigr)^T$; we will use FEniCS to generate $\hvu$
-    \item  Define a distribution for $\vA$ via the transformation $\vA = \vPsi(\vW)$, where $\vW \sim \cu[0,1]^N$
-    \item We want 
-    \[
-    \Ex[u(1/2,a)] \approx \Ex[\hu(1/2,\vA)] = \Ex[\hu(1/2,\vPsi(\vW))] \approx \frac 1n \sum_{i=1}^n \hu(1/2,\vPsi(\vw_i))
-    \]
-    where $\vw_1, \vw_2, \ldots$ are low discrepancy points
-    
-\end{itemize}
-
-    
-\end{frame}
-
-
-\begin{frame}{Next Steps}
-
-\vspace{-8ex}
-\begin{gather*}
--\frac{\dif }{\dif x}\biggl(a(x) \frac{\dif}{\dif x} u(x) \biggr) = f(x), \quad 0 \leq x \leq 1, \qquad
-u(0) = u_0, \quad
-u(1) = u_1, \qquad \\
-\log(a) \sim \GP(0,C), \qquad \Ex[u(1/2,a)] = ?
-\end{gather*}
-
-\vspace{-3ex}
 \begin{enumerate}
-    \item Look at FEniCS tutorials to learn how to generate $\hvu = \bigl(\hu(x_1;\vA), \ldots, \hu(x_N;\vA)\bigr)^T$, where $\vA = \bigl( a(x_1), \dots, a(x_N) \bigr)^T$
-    \begin{itemize}
-        \item First do $u_0 = u_1 = 0$, $a(x) = 1$, $f(x) = u(x) = \sin(\pi x)$
-        \item Next try $a(x) = x$, $u(x) = \sin (\pi x)$, $f(x) =$ whatever it takes
-    \end{itemize}
-    \item  Implement the log-normal transformation, $\vPsi$ following what Pieterjan did.
-    \item Use the Sobol' or lattice stopping criterion to approximate  $\Ex[\hu(1/2,\vPsi(\vW))]$, where $\vW \sim \cu[0,1]^N$
-    
+\setcounter{enumi}{\value{enumcont}}
+    \item Compute $\Ex[u(\cdot;a)]$ using QMCPy's ability to solve for several integrals at a time
+    \item Use a multi-level approach to save time
+    \item Solve a 2D PDEs with random coefficients
+    \item Implement in a multi-processing environment
 \end{enumerate}
 
     
 \end{frame}
+
+\begin{frame}{Toy Problem}
+    \vspace{-8ex}
+\begin{gather*}
+-\frac{\dif }{\dif x}\biggl(a(x,W) \frac{\dif}{\dif x} u(x) \biggr) = f(x), \quad 0 \leq x \leq 1, \qquad
+u(0) = u(1) = 0, \qquad  f(x) = \sin(\pi x)\\
+a(x,W) = 1 + W, \quad W \IIDsim \cu[0,1] \quad \text{\alert{one} dimensional random variable}, \\
+u(x) = \frac{\sin(\pi x)}{\pi^2 (1+W)} \quad \text{by inspection}\\ 
+\Ex[u(x;a)] = \int_0^1 \frac{\sin(\pi x)}{\pi^2 (1+w)} \, \dif w = \frac{\log(2) }{\pi^2} \sin(\pi x) \quad \text{\alert{one} dimensional integration} \\ \Ex[u(1/2;a)] = \frac{\log(2) }{\pi^2}
+\end{gather*}
+Try to reproduce this exact result using numerical computation with QMCPy and FEniCS.
+
+\end{frame}
+
+
+\begin{frame}{Gaussian Processes}
+    \vspace{-4ex}
+If $\log(a) \sim \GP(0,C)$ then, $\Ex(\log(a(\vx))) = 0$ and $\cov(\log(a(\vx)), \log(a(\vt)) = C(\vx,\vt)$ for some function $C:\reals^d \times \reals^d \to \reals$. 
+For example, $C(x,t) = \exp(- s \abs{x-t})$ for fixed $s>0$.
+
+To generate $\log(a(x_1)), \ldots, \log(a(x_N))$, find $\mB$ such that 
+\[
+\mC = \bigl(C(x_i,x_j)\bigr)_{i,j=1}^N = \mB^T \mB
+\]
+If $\vW \sim \cu[0,1]^N$ and $\vPhi^{-1}$ is the component-wise Gaussian CDF, then $\vY = \mB \vPhi^{-1}(\vW) \sim \cn(\vzero_N,\mC)$ and 
+\[
+\vA = \begin{pmatrix} a(x_1) \\ \vdots \\ a(x_N) \end{pmatrix}
+= \exp(\vY)
+\]
+The $\vx_j$ are the mesh points
+
+
+\end{frame}
+
+\begin{frame}{Expansion of Gaussian Processes}
+    \vspace{-8ex}
+If $C:\reals^d \times \reals^d \to \reals$ is a covariance kernel, and has an eigenvector eigenvalue expansion
+\[
+C(\vx,\vt) = \sum_{k=1}^\infty \phi_k(\vx) \phi_k(\vt),
+\]
+then if $Y_k \IIDsim \cn(0,1)$
+\[
+y(\vx) = \sum_{k=1}^\infty Y_k \phi_k(\vx) \sim \GP(0,C)
+\]
+\end{frame}
+
+\begin{frame}{Expansion of Gaussian Processes}
+
+Or, starting from
+\[
+\log(a(\vx)) = y(\vx) = \sum_{k=1}^d Y_k \phi_k(\vx), \qquad \vY = (Y_1, \ldots, Y_d)^T \sim \cn(\vzero,\mI_d)
+\]
+e.g., $\phi_k = T_{k-1}(2x-1)/k^2$, which then implies
+\[
+C(\vx,\vt) = \sum_{k=1}^d \phi_k(\vx) \phi_k(\vt)
+\]
+And so the $i^{\text{th}}$ instance of $\log(a(\vx))$ is
+\[
+\log(a_i(\vx)) = y_i(\vx) = \sum_{k=1}^d Y_{ik} \phi_k(\vx), \qquad \vY_i = (Y_{i1}, \ldots, Y_{id}) \IIDsim \cn(\vzero,\mI_d) \text{ or } \LDsim \cn(\vzero,\mI_d)
+\]
+
+\end{frame}
+
+
+\begin{frame}{Advanced Toy Problem}
+\vspace{-4ex}
+\begin{gather*}
+-\frac{\dif }{\dif x}\biggl(a(x,W) \frac{\dif}{\dif x} u(x) \biggr) = \sin(\pi x), \quad 0 \leq x \leq 1, \qquad
+u(0) = u(1) = 0, \\
+\frac{1}{a(x,\vW)} = 1 + \beta \sum_{k=1}^d \frac{W_k T_{k}(2x-1)}{k^2} , \ (\beta < 6/\pi^2) \quad \vW \sim \cu[-1,1]^d \\
+\cov\bigl(1/a(x,\vW),1/a(t,\vW)\bigr) = \frac{\beta^2}{3} \sum_{k=1}^d \frac{ T_{k}(2x-1)T_{k}(2t-1)}{k^4}\\
+u'(x) = \frac{\cos(\pi x)-1}{\pi a(x,\vW)} + u'(0)\\
+u(x) = \int_0^x \frac{\cos(\pi t)-1}{\pi a(t,\vW)} \, \dif t - x \int_0^1 \frac{\cos(\pi t)-1}{\pi a(t,\vW)} \, \dif t \\
+= (1-x) \int_0^x \frac{\cos(\pi t)-1}{\pi a(t,\vW)} \, \dif t - x \int_x^1 \frac{\cos(\pi t)-1}{\pi a(t,\vW)} \, \dif t
+\end{gather*}
+
+\end{frame}
+
+\begin{frame}{Advanced Toy Problem}
+\vspace{-4ex}
+\begin{align*}
+\Ex[u(x)] &= \Ex\left[ (1-x) \int_0^x \frac{\cos(\pi t)-1}{\pi a(t,\vW)} \, \dif t - x \int_x^1 \frac{\cos(\pi t)-1}{\pi a(t,\vW)} \, \dif t \right] \\
+ &=(1-x) \int_0^x \frac{\cos(\pi t)-1}{\pi} \Ex\left[ \frac{1}{a(t,\vW)} \right] \, \dif t - x \int_x^1 \frac{\cos(\pi t)-1}{\pi} \Ex\left[ \frac{1}{a(t,\vW)}  \right] \, \dif t \\
+ &=(1-x) \int_0^x \frac{\cos(\pi t)-1}{\pi} \, \dif t - x \int_x^1 \frac{\cos(\pi t)-1}{\pi}  \, \dif t \\
+ & =
+\end{align*}
+
+\end{frame}
+
+\begin{frame}{Advanced Toy Problem II}
+\vspace{-4ex}
+\begin{gather*}
+-\frac{\dif }{\dif x}\biggl(a(x,W) \frac{\dif}{\dif x} u(x) \biggr) = \sin(\pi x), \quad 0 \leq x \leq 1, \qquad
+u(0) = u(1) = 0, \\
+\frac{1}{a(x,\vW)} = \exp\left(1 + \beta \sum_{k=1}^d \frac{W_k T_{k}(2x-1)}{k^2} \right) , \ (\beta < 6/\pi^2) \quad \vW \sim \cu[-1,1]^d \\
+\cov\bigl(1/a(x,\vW),1/a(t,\vW)\bigr) = \frac{\beta^2}{3} \sum_{k=1}^d \frac{ T_{k}(2x-1)T_{k}(2t-1)}{k^4}\\
+u'(x) = \frac{\cos(\pi x)-1}{\pi a(x,\vW)} + u'(0)\\
+u(x) = \int_0^x \frac{\cos(\pi t)-1}{\pi a(t,\vW)} \, \dif t - x \int_0^1 \frac{\cos(\pi t)-1}{\pi a(t,\vW)} \, \dif t \\
+= (1-x) \int_0^x \frac{\cos(\pi t)-1}{\pi a(t,\vW)} \, \dif t - x \int_x^1 \frac{\cos(\pi t)-1}{\pi a(t,\vW)} \, \dif t
+\end{gather*}
+
+\end{frame}
+
+
+\begin{frame}{Advanced Toy Problem III}
+\vspace{-4ex}
+\begin{gather*}
+-\frac{\dif }{\dif x}\biggl(a(x,W) \frac{\dif}{\dif x} u(x) \biggr) = 2x - 1, \quad 0 \leq x \leq 1, \qquad
+u(0) = u(1) = 0, \\
+u'(x) = \frac{x - x^2}{a(x,\vW)} + u'(0)\\
+u(x) = \int_0^x \frac{t - t^2}{a(t,\vW)} \, \dif t - x \int_0^1 \frac{t - t^2}{a(t,\vW)} \, \dif t = (1-x) \int_0^x \frac{t - t^2}{a(t,\vW)} \, \dif t - x \int_x^1 \frac{x - x^2}{a(t,\vW)} \, \dif t \\
+a(x,\vW) = 1 +  W (2x-1) , \ (\beta < 1) \quad W \sim \cu[-\beta,\beta] \\
+u(x) = (1-x) \int_0^x \frac{t - t^2}{1 +  W (2t-1)} \, \dif t - x \int_x^1 \frac{t - t^2}{1 +  W (2t-1)} \, \dif t 
+\end{gather*}
+
+\end{frame}
+
+
+\begin{frame}{Advanced Toy Problem III}
+\vspace{-2ex}
+Let $y=1 + W(2t-1)$, so $t = ((y-1)/W +1)/2$ and $\dif t = \dif t/(2W)$.  Thus
+\begin{align*}
+    \MoveEqLeft{\int \frac{t - t^2}{1 +  W (2t-1)} \, \dif t} \\
+    & =  \int \frac{((y-1)/W +1)/2 -[((y-1)/W +1)/2]^2}{2W y} \, \dif y \\ 
+    & =  \int \frac{1 -((y-1)/W)^2}{8Wy} \, \dif y 
+    =  \int \frac{W^2 -1 + 2y -y^2}{8W^3y} \, \dif y \\
+    & = \frac{(W^2 -1) \log(y) +2 y - (y^2/2)}{8W^3} + C\\
+    & = \frac{(W^2 -1) \log(1+W(2t-1)) +2 (1 + W(2t-1))- ((1 + W(2t-1))^2/2)}{8W^3} + C\\
+    & = \frac{(W^2 -1) \log(1+W(2t-1)) + W(2t-1))- W^2(2t-1)^2/2}{8W^3} + C \\
+\end{align*}
+
+\end{frame}
+
+\begin{frame}{Advanced Toy Problem III}
+\vspace{-2ex}
+\begin{gather*}
+\log(1+ \eta) = \eta - \frac{\eta^2}{2} + \frac{\eta^3}{3} + \cdots \\
+ \log(1+W(2t-1)) =  W(2t-1) - \frac{ W^2(2t-1)^2}{2} + \cdots
+\end{gather*}
+\end{frame}
+
+\begin{frame}{Advanced Toy Problem III}
+\begin{gather*}
+    = \frac{(W^2 -1) \log(1+W(2t-1)) + W(2t-1)- W^2(2t-1)^2/2}{8W^3} + C \\
+    = \frac{W^2\log(1+W(2t-1)) -\log(1+W(2t-1))  + 2W(2t-1)- W^2(2t-1)^2/2}{8W^3} + C \\
+    = \frac{W^2\log(1+W(2t-1)) -(W(2t-1) - \frac{ W^2(2t-1)^2}{2} + \cdots)  + 2W(2t-1)- W^2(2t-1)^2/2}{8W^3} + C \\
+    = \frac{W^2\log(1+W(2t-1)) -(\textcolor{red}{W(2t-1)} - \textcolor{blue}{\frac{ W^2(2t-1)^2}{2}} + \cdots)  + \textcolor{red}{W(2t-1)} - \textcolor{blue}{W^2(2t-1)^2/2}}{8W^3} + C \\
+    = \frac{W^2\log(1+W(2t-1)) -(\sum_{k=3}^{\infty}(\frac{(-1)^{k+1}W^k(2t-1)^k}{k})) }{8W^3} + C \\
+\end{gather*}
+
+
+\end{frame}
+
+\begin{frame}{Advanced Toy Problem III}
+\vspace{-3ex}
+\begin{gather*}
+    \int_0^x \frac{t - t^2}{1 +  W (2t-1)} \, \dif t = \left . \frac{(W^2 -1) \log(1+W(2t-1)) + W(2t-1)- W^2(2t-1)^2/2}{8W^3} \right \rvert_0^x \\
+    = \frac{(W^2 -1) \log(1+W(2x-1)) + W(2x-1)- W^2(2x-1)^2/2}{8W^3} \\ 
+    -  \frac{(W^2 -1) \log(1-W) - W- W^2/2}{8W^3} \\
+    \int_x^1 \frac{t - t^2}{1 +  W (2t-1)} \, \dif t = 
+    \left . \frac{(W^2 -1) \log(1+W(2t-1)) + W(2t-1)- W^2(2t-1)^2/2}{8W^3} \right \rvert_x^1 \\
+    = \frac{(W^2 -1) \log(1+W) + W- W^2/2}{8W^3}\\ 
+    -\frac{(W^2 -1) \log(1+W(2x-1)) + W(2x-1)- W^2(2x-1)^2/2}{8W^3} \\ 
+\end{gather*}
+
+
+\end{frame}
+
+\begin{frame}{Advanced Toy Problem III}
+\vspace{-5ex}
+{\small
+\begin{gather*}
+    (1-x)\int_0^x \frac{t - t^2}{1 +  W (2t-1)} \, \dif t - x \int_x^1 \frac{t - t^2}{1 +  W (2t-1)} \, \dif t \\
+    = \frac{(W^2 -1) \log(1+W(2x-1)) + W(2x-1)- W^2(2x-1)^2/2}{8W^3} \\ 
+    -  \frac{(W^2 -1) \log(1-W) - W- W^2/2}{8W^3} \\
+    = \frac{(W^2 -1) \log(1+W) + W- W^2/2}{8W^3}\\ 
+    -\frac{(W^2 -1) \log(1+W(2x-1)) + W(2x-1)- W^2(2x-1)^2/2}{8W^3} \\ 
+    = \frac{(W^2 -1) [\log(1+W(2x-1)) - (1-x) \log(1-W) -x \log(1+W)] + 2W^2x(1-x)}{8W^3}
+\end{gather*}
+}
+
+
+\end{frame}
+
 
 
 
